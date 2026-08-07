@@ -8,7 +8,7 @@ Userscript ChatGPT Conversation JSON Exporter。
 
 先安装篡改猴、暴力猴或其它兼容的 userscript 管理器，然后点击：
 
-**[安装 uccje](https://a7t.ink/uccje/uccje.user.js)**
+**[安装 uccje](https://raw.githubusercontent.com/A7T/uccje/main/uccje.user.js)**
 
 userscript 管理器会打开安装确认页。完成安装后，打开一个 ChatGPT 对话。
 

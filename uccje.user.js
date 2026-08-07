@@ -2,13 +2,13 @@
 // @name         ChatGPT Conversation JSON Exporter
 // @name:zh-CN   ChatGPT 对话 JSON 导出工具
 // @namespace    https://github.com/A7T/uccje
-// @version      0.1.1
+// @version      0.1.2
 // @description  Download the current ChatGPT conversation as raw JSON.
 // @description:zh-CN 下载当前 ChatGPT 对话的原始 JSON。
 // @author       A7T
 // @license      MIT
-// @updateURL    https://a7t.ink/uccje/uccje.user.js
-// @downloadURL  https://a7t.ink/uccje/uccje.user.js
+// @updateURL    https://raw.githubusercontent.com/A7T/uccje/main/uccje.meta.js
+// @downloadURL  https://raw.githubusercontent.com/A7T/uccje/main/uccje.user.js
 // @match        https://chatgpt.com/*
 // @run-at       document-idle
 // @grant        none
