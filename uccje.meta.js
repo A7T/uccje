@@ -7,8 +7,8 @@
 // @description:zh-CN 下载当前 ChatGPT 对话的原始 JSON。
 // @author       A7T
 // @license      MIT
-// @updateURL    https://raw.githubusercontent.com/A7T/uccje/main/uccje.meta.js
-// @downloadURL  https://raw.githubusercontent.com/A7T/uccje/main/uccje.user.js
+// @updateURL    https://a7t.ink/uccje/uccje.meta.js
+// @downloadURL  https://a7t.ink/uccje/uccje.user.js
 // @match        https://chatgpt.com/*
 // @run-at       document-idle
 // @grant        none
