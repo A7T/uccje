@@ -1,0 +1,105 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>uccje browser regression tests</title>
+<h1>uccje browser regression tests</h1>
+<p>Serve the repository root locally, then open /tests/browser.html. No dependencies or live account needed.</p>
+<button id="run">Run tests</button>
+<pre id="results"></pre>
+<iframe title="Test fixture" style="width:600px;height:100px"></iframe>
+<script type="module">
+  const output = document.querySelector('#results');
+  const frame = document.querySelector('iframe');
+  const share = '<button aria-label="Partager"><svg><use href="/icons.svg#arrow-up-open-base-light-16"></use></svg></button>';
+  const header = `<header><div data-app-shell-main-titlebar="true"><div>${share}<button aria-label="More">…</button></div></div></header>`;
+  const pause = (ms) => new Promise(resolve => setTimeout(resolve, ms));
+  async function until(predicate) {
+    const deadline = performance.now() + 4000;
+    while (!predicate()) {
+      if (performance.now() > deadline) throw new Error('Timed out waiting for fixture');
+      await pause(20);
+    }
+  }
+  function assert(condition, message) {
+    if (!condition) throw new Error(message);
+    output.textContent += `PASS ${message}\n`;
+  }
+  document.querySelector('#run').onclick = async function () {
+    this.disabled = true;
+    output.textContent = '';
+    try {
+      await new Promise(resolve => {
+        frame.onload = resolve;
+        frame.src = './fixture.html';
+      });
+      const win = frame.contentWindow;
+      const doc = win.document;
+      const data = win.fixture;
+      const getButton = () => doc.querySelector('#uccje-download-button');
+      doc.querySelector('main').innerHTML = share;
+      await pause(100);
+      assert(!getButton(), 'Reply share buttons are ignored');
+
+      doc.body.insertAdjacentHTML('afterbegin', header);
+      await until(getButton);
+      const button = getButton();
+      assert(button.previousElementSibling.getAttribute('aria-label') === 'Partager', 'Mounts beside the current titlebar share control, independent of language');
+      assert(button.title === '下载聊天', 'Download tooltip is present');
+      for (let i = 0; i < 5; i++) doc.body.append(doc.createElement('span'));
+      await pause(100);
+      assert(doc.querySelectorAll('#uccje-download-button').length === 1, 'Repeated DOM changes do not duplicate the control');
+
+      button.click();
+      await until(() => data.downloads.length === 1);
+      assert(await data.downloads[0].blob.text() === data.raw, 'Exports exact raw response text, including whitespace and Unicode');
+      const date = new Date(1791379980000);
+      const pad = n => String(n).padStart(2, '0');
+      const suffix = [date.getFullYear(), pad(date.getMonth()+1), pad(date.getDate()), pad(date.getHours()), pad(date.getMinutes())].join('');
+      assert(data.downloads[0].filename === `${data.id}-${suffix}.json`, 'Filename uses the current branch timestamp, not another branch or update_time');
+      assert(data.calls[1].url === `/backend-api/conversation/${data.id}` && data.calls[1].options.headers.Authorization === 'Bearer fixture-token', 'Requests the selected conversation using the session token');
+      await until(() => !button.disabled);
+
+      let release;
+      data.gate = new Promise(resolve => { release = resolve; });
+      button.click();
+      await until(() => data.calls.length === 4);
+      const nextId = '00000000-0000-0000-0000-000000000002';
+      win.history.pushState(null, '', `/c/${nextId}`);
+      doc.querySelector('header').outerHTML = header;
+      await until(getButton);
+      assert(getButton() === button && button.disabled, 'Header replacement reuses the pending download control');
+      release();
+      await until(() => data.downloads.length === 2);
+      assert(data.downloads[1].filename.startsWith(data.id), 'Navigation does not change the conversation captured at click time');
+      await until(() => !button.disabled);
+
+      data.gate = null;
+      button.click();
+      await until(() => data.alerts.length === 1);
+      assert(data.calls[5].url.endsWith(nextId) && data.downloads.length === 2, 'Next click uses the new URL and rejects a mismatched response');
+      await until(() => !button.disabled);
+      data.status = 403;
+      button.click();
+      await until(() => data.alerts.length === 2);
+      assert(data.downloads.length === 2 && data.alerts[1].includes('拒绝'), 'Failed API responses are not downloaded');
+
+      win.history.pushState(null, '', '/');
+      doc.body.append(doc.createElement('span'));
+      await until(() => !getButton());
+      assert(!getButton(), 'Removes the control outside a conversation');
+      win.history.pushState(null, '', `/g/test/c/${data.id}`);
+      win.dispatchEvent(new PopStateEvent('popstate'));
+      await until(getButton);
+      assert(getButton() === button, 'Remounts once on returning to a conversation, including project paths');
+      doc.querySelector('header').setAttribute('aria-hidden', 'true');
+      await until(() => !getButton());
+      doc.querySelector('header').removeAttribute('aria-hidden');
+      await until(getButton);
+      assert(doc.querySelectorAll('#uccje-download-button').length === 1, 'Hidden titlebars are skipped and become usable when shown');
+      output.textContent += '\nAll tests passed.\n';
+    } catch (error) {
+      output.textContent += `FAIL ${error.stack}\n`;
+    } finally {
+      this.disabled = false;
+    }
+  };
+</script>

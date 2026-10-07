@@ -2,3 +2,5 @@ theme: jekyll-theme-hacker
 title: uccje
 description: Download the current ChatGPT conversation as raw JSON.
 lang: zh-CN
+exclude:
+  - tests/

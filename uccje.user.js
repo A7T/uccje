@@ -2,7 +2,7 @@
 // @name         ChatGPT Conversation JSON Exporter
 // @name:zh-CN   ChatGPT 对话 JSON 导出工具
 // @namespace    https://github.com/A7T/uccje
-// @version      0.1.2
+// @version      0.2.0
 // @description  Download the current ChatGPT conversation as raw JSON.
 // @description:zh-CN 下载当前 ChatGPT 对话的原始 JSON。
 // @author       A7T
@@ -18,7 +18,7 @@
   'use strict';
 
   const BUTTON_ID = 'uccje-download-button';
-  const WRAPPER_ID = 'uccje-download-wrapper';
+  const HEADER_SELECTOR = '[data-app-shell-main-titlebar="true"]';
   const CONVERSATION_ID_PATTERN =
     /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
@@ -189,6 +189,8 @@
     button.id = BUTTON_ID;
     button.type = 'button';
     button.className = shareButton.className;
+    // The share control now includes text; keep our icon-only control square.
+    button.style.cssText = 'aspect-ratio:1;padding:0;flex-shrink:0;justify-content:center;';
     button.setAttribute('aria-label', '下载聊天');
     button.title = '下载聊天';
     button.innerHTML = `
@@ -212,50 +214,39 @@
     return button;
   }
 
-  function getDirectChild(container, descendant) {
-    let child = descendant;
-    while (child && child.parentElement !== container) {
-      child = child.parentElement;
+  function findShareButton() {
+    // Replies also have share buttons. Only inspect the current titlebar, and
+    // use the icon name so this does not depend on the interface language.
+    for (const button of document.querySelectorAll(`${HEADER_SELECTOR} button`)) {
+      if (button.closest('[hidden], [aria-hidden="true"]') || !button.getClientRects().length) {
+        continue;
+      }
+      const icon = button.querySelector('svg use')?.getAttribute('href')?.split('#')[1];
+      if (icon?.startsWith('arrow-up-open-base-')) {
+        return button;
+      }
     }
-    return child && child.parentElement === container ? child : null;
+    return null;
   }
 
+  // Reuse the same control when React replaces the titlebar, including while
+  // a download is pending. Its disabled state and click handler stay intact.
+  let button;
+
   function syncButton() {
-    const existingWrapper = document.getElementById(WRAPPER_ID);
-    if (!getConversationId()) {
-      existingWrapper?.remove();
+    const shareButton = getConversationId() && findShareButton();
+    if (!shareButton) {
+      button?.remove();
       return;
     }
 
-    const shareButton = document.querySelector('[data-testid="share-chat-button"]');
-    if (!(shareButton instanceof HTMLButtonElement)) {
-      existingWrapper?.remove();
-      return;
+    button ??= createButton(shareButton);
+    if (button.className !== shareButton.className) {
+      button.className = shareButton.className;
     }
-
-    const actions =
-      shareButton.closest('#conversation-header-actions') ||
-      shareButton.closest('[data-testid="thread-header-right-actions"]');
-    if (!(actions instanceof HTMLElement)) {
-      existingWrapper?.remove();
-      return;
+    if (shareButton.nextElementSibling !== button) {
+      shareButton.insertAdjacentElement('afterend', button);
     }
-
-    if (existingWrapper && actions.contains(existingWrapper)) {
-      return;
-    }
-    existingWrapper?.remove();
-
-    const shareWrapper = getDirectChild(actions, shareButton);
-    if (!shareWrapper) {
-      return;
-    }
-
-    const wrapper = document.createElement('div');
-    wrapper.id = WRAPPER_ID;
-    wrapper.className = 'flex items-center';
-    wrapper.append(createButton(shareButton));
-    shareWrapper.insertAdjacentElement('afterend', wrapper);
   }
 
   let syncScheduled = false;
@@ -271,7 +262,12 @@
   }
 
   const observer = new MutationObserver(scheduleSync);
-  observer.observe(document.documentElement, { childList: true, subtree: true });
+  observer.observe(document.documentElement, {
+    childList: true,
+    subtree: true,
+    attributes: true,
+    attributeFilter: ['aria-hidden', 'hidden', 'href', 'data-app-shell-main-titlebar'],
+  });
   window.addEventListener('popstate', scheduleSync);
   window.addEventListener('pageshow', scheduleSync);
   scheduleSync();

@@ -1,0 +1,39 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>uccje test fixture</title>
+<style>
+  button { display: inline-flex; align-items: center; height: 36px; }
+</style>
+<main></main>
+<script>
+  const id = '00000000-0000-0000-0000-000000000001';
+  history.replaceState(null, '', `/c/${id}`);
+  window.fixture = {
+    id, calls: [], downloads: [], alerts: [], status: 200, gate: null,
+    raw: ` { "conversation_id": "${id}", "current_node": "end",
+      "mapping": {"end": {"parent": "answer", "message": null},
+        "answer": {"message": {"create_time": 1791379980, "content": "中文"}},
+        "other_branch": {"message": {"create_time": 1999999999}}},
+      "update_time": 1999999999 }\n`,
+  };
+  window.fetch = async (url, options) => {
+    fixture.calls.push({ url, options });
+    if (url === '/api/auth/session') {
+      return new Response(JSON.stringify({ accessToken: 'fixture-token' }));
+    }
+    if (fixture.gate) await fixture.gate;
+    return new Response(fixture.raw, { status: fixture.status });
+  };
+  const blobs = new Map();
+  URL.createObjectURL = (blob) => {
+    const url = `blob:fixture-${blobs.size}`;
+    blobs.set(url, blob);
+    return url;
+  };
+  URL.revokeObjectURL = (url) => blobs.delete(url);
+  HTMLAnchorElement.prototype.click = function () {
+    fixture.downloads.push({ filename: this.download, blob: blobs.get(this.href) });
+  };
+  window.alert = (message) => fixture.alerts.push(message);
+</script>
+<script src="../uccje.user.js"></script>
